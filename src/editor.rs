@@ -1,35 +1,52 @@
 use crossterm::{
-    event::{Event, KeyCode::Char},
+    event::{read, Event, KeyCode::Char, KeyEvent, KeyModifiers},
     terminal,
 };
 
-pub struct Editor {}
+pub struct Editor {
+    should_quit: bool,
+}
 
 impl Editor {
     pub fn default() -> Self {
-        Editor {}
+        Editor { should_quit: false }
     }
 
-    pub fn run(&self) {
-        terminal::enable_raw_mode().unwrap();
+    pub fn run(&mut self) {
+        if let Err(err) = self.repl() {
+            panic!("{err:#?}");
+        }
+        print!("Goodbye.\r\n");
+    }
+
+    pub fn repl(&mut self) -> Result<(), std::io::Error> {
+        terminal::enable_raw_mode()?;
         loop {
-            match crossterm::event::read() {
-                Ok(Event::Key(event)) => {
-                    println!("{:?} \r", event);
-                    match event.code {
-                        Char(c) => {
-                            if c == 'q' {
-                                break;
-                            }
-                        }
-                        _ => (),
+            if let Event::Key(KeyEvent {
+                code,
+                modifiers,
+                kind,
+                state,
+            }) = read()?
+            {
+                println!(
+                    "Code: {code:?} Modifiers: {modifiers:?} Kind: {kind:?} State: {state:?} \r"
+                );
+
+                match code {
+                    Char('q') if modifiers == KeyModifiers::CONTROL => {
+                        self.should_quit = true;
                     }
+                    _ => (),
                 }
-                Err(err) => println!("{err}"),
-                _ => (),
+            }
+
+            if self.should_quit {
+                break;
             }
         }
 
-        terminal::disable_raw_mode().unwrap();
+        terminal::disable_raw_mode()?;
+        Ok(())
     }
 }
