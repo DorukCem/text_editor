@@ -4,14 +4,14 @@ use crossterm::terminal::{self, Clear, ClearType};
 
 #[derive(Copy, Clone)]
 pub struct Size {
-    pub height: u16,
-    pub width: u16,
+    pub height: usize,
+    pub width: usize,
 }
 
 #[derive(Copy, Clone)]
 pub struct Position {
-    pub x: u16,
-    pub y: u16,
+    pub x: usize,
+    pub y: usize,
 }
 
 pub struct Terminal {}
@@ -40,11 +40,15 @@ impl Terminal {
 
     pub fn move_cursor_to(pos: Position) -> Result<(), std::io::Error> {
         let Position { x, y } = pos;
-        Self::queue_command(crossterm::cursor::MoveTo(x, y))?;
+        #[allow(clippy::as_conversions, clippy::cast_possible_truncation)]
+        Self::queue_command(crossterm::cursor::MoveTo(x as u16, y as u16))?;
         Ok(())
     }
     pub fn size() -> Result<Size, std::io::Error> {
-        terminal::size().map(|(height, width)| Size { height, width })
+        terminal::size().map(|(height, width)| Size {
+            height: height as usize,
+            width: width as usize,
+        })
     }
 
     pub fn hide_cursor() -> Result<(), std::io::Error> {
@@ -67,7 +71,7 @@ impl Terminal {
         Ok(())
     }
 
-    fn queue_command<T:crossterm::Command>(command: T) -> Result<(), std::io::Error> {
+    fn queue_command<T: crossterm::Command>(command: T) -> Result<(), std::io::Error> {
         crossterm::queue!(stdout(), command)?;
         Ok(())
     }
