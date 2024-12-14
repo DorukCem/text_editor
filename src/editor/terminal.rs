@@ -8,7 +8,7 @@ pub struct Size {
     pub width: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
@@ -45,7 +45,7 @@ impl Terminal {
         Ok(())
     }
     pub fn size() -> Result<Size, std::io::Error> {
-        terminal::size().map(|(height, width)| Size {
+        terminal::size().map(|(width, height)| Size {
             height: height as usize,
             width: width as usize,
         })

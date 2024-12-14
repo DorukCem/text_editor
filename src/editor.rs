@@ -1,18 +1,26 @@
-use crossterm::event::{read, Event, KeyCode::Char, KeyEvent, KeyModifiers};
+
+use core::cmp::min;
+
+use crossterm::event::{
+    read, Event,
+    KeyCode::{self, Char},
+    KeyEvent, KeyModifiers,
+};
 mod terminal;
-use terminal::{Position, Terminal};
+mod view;
+use terminal::{Position, Size, Terminal};
+use view::View;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Default)]
 pub struct Editor {
     should_quit: bool,
+    location: Position,
 }
 
 impl Editor {
-    pub const fn default() -> Self {
-        Editor { should_quit: false }
-    }
 
     pub fn run(&mut self) {
         Terminal::initialize().unwrap();
@@ -28,13 +36,13 @@ impl Editor {
                 break;
             }
             let event = read()?;
-            self.evaluate_event(&event);
+            self.evaluate_event(&event)?;
         }
 
         Ok(())
     }
 
-    fn evaluate_event(&mut self, event: &Event) {
+    fn evaluate_event(&mut self, event: &Event) -> Result<(), std::io::Error> {
         if let Event::Key(KeyEvent {
             code, modifiers, ..
         }) = event
@@ -43,58 +51,54 @@ impl Editor {
                 Char('q') if *modifiers == KeyModifiers::CONTROL => {
                     self.should_quit = true;
                 }
+                KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Left
+                | KeyCode::Right
+                | KeyCode::PageDown
+                | KeyCode::PageUp
+                | KeyCode::End
+                | KeyCode::Home => {
+                    self.move_point(*code)?;
+                }
                 _ => (),
             }
         }
+        Ok(())
+    }
+
+    fn move_point(&mut self, keycode: KeyCode) -> Result<(), std::io::Error> {
+        let Size { height, width } = Terminal::size()?;
+
+        match keycode {
+            KeyCode::Left => self.location.x = self.location.x.saturating_sub(1),
+            KeyCode::Right => self.location.x = min(height.saturating_sub(1), self.location.x.saturating_add(1)),
+            KeyCode::Up => self.location.y = self.location.y.saturating_sub(1),
+            KeyCode::Down => self.location.y = min(width.saturating_sub(1), self.location.y.saturating_add(1)),
+
+            KeyCode::Home => self.location.x = 0,
+            KeyCode::End => self.location.x = width.saturating_sub(1),
+            KeyCode::PageUp => self.location.y = 0,
+            KeyCode::PageDown => self.location.y = height.saturating_sub(1),
+            _ => (),
+        }
+        Ok(())
     }
 
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::hide_cursor()?;
+        Terminal::move_cursor_to(Position::default())?;
         if self.should_quit {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye.\r\n")?;
         } else {
-            Self::draw_rows()?;
-            Terminal::move_cursor_to(Position { x: 0, y: 0 })?;
+            View::render()?;
+            Terminal::move_cursor_to(self.location)?;
         }
         Terminal::show_cursor()?;
         Terminal::execute()?;
         Ok(())
     }
 
-    fn draw_welcome_message() -> Result<(), std::io::Error> {
-        let mut welcome_message = format!("{NAME} editor -- version {VERSION}");
-        let width = Terminal::size()?.width;
-        let len = welcome_message.len();
-        #[allow(clippy::integer_division)]
-        let padding = (width.saturating_sub(len)) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
-        welcome_message = format!("~{spaces}{welcome_message}");
-        welcome_message.truncate(width);
-        Terminal::print(&welcome_message)?;
-        Ok(())
-    }
-
-    fn draw_empty_row() -> Result<(), std::io::Error> {
-        Terminal::print("~")?;
-        Ok(())
-    }
-
-    fn draw_rows() -> Result<(), std::io::Error> {
-        let height = Terminal::size()?.height;
-        for current_row in 0..height {
-            Terminal::clear_line()?;
-            Terminal::print("~")?;
-            #[allow(clippy::integer_division)]
-            if current_row == height / 3 {
-                Self::draw_welcome_message()?;
-            } else {
-                Self::draw_empty_row()?;
-            }
-            if current_row.saturating_add(1) < height {
-                Terminal::print("\r\n")?;
-            }
-        }
-        Ok(())
-    }
+    
 }
