@@ -6,7 +6,6 @@ use super::{
 #[derive(Default)]
 pub struct View {
     buffer: Buffer,
-
 }
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -16,13 +15,15 @@ impl View {
         let Size { height, .. } = Terminal::size()?;
         Terminal::clear_line()?;
 
-        for current_row in 0..height{
+        for current_row in 0..height {
             Terminal::clear_line()?;
-            if let Some(line) = self.buffer.lines.get(current_row){
-                Terminal::print(&line);
-            } else{
-                Self::draw_empty_row();
+            if let Some(line) = self.buffer.lines.get(current_row) {
+                Terminal::print(&line)?;
+            } else {
+                Self::draw_empty_row()?;
             }
+
+
             if current_row.saturating_add(1) < height {
                 Terminal::print("\r\n")?;
             }
@@ -46,6 +47,12 @@ impl View {
     }
     fn draw_empty_row() -> Result<(), std::io::Error> {
         Terminal::print("~")?;
+        Ok(())
+    }
+
+    pub fn load(&mut self, filename: &str) -> Result<(), std::io::Error> {
+        let content = std::fs::read_to_string(filename)?;
+        self.buffer.lines = content.lines().map(String::from).collect();
         Ok(())
     }
 }
