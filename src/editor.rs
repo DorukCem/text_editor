@@ -8,6 +8,7 @@ use crossterm::event::{
 };
 mod terminal;
 mod view;
+mod buffer;
 use terminal::{Position, Size, Terminal};
 use view::View;
 
@@ -18,6 +19,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct Editor {
     should_quit: bool,
     location: Position,
+    view: View,
 }
 
 impl Editor {
@@ -72,9 +74,9 @@ impl Editor {
 
         match keycode {
             KeyCode::Left => self.location.x = self.location.x.saturating_sub(1),
-            KeyCode::Right => self.location.x = min(height.saturating_sub(1), self.location.x.saturating_add(1)),
+            KeyCode::Right => self.location.x = min(width.saturating_sub(1), self.location.x.saturating_add(1)),
             KeyCode::Up => self.location.y = self.location.y.saturating_sub(1),
-            KeyCode::Down => self.location.y = min(width.saturating_sub(1), self.location.y.saturating_add(1)),
+            KeyCode::Down => self.location.y = min(height.saturating_sub(1), self.location.y.saturating_add(1)),
 
             KeyCode::Home => self.location.x = 0,
             KeyCode::End => self.location.x = width.saturating_sub(1),
@@ -92,7 +94,7 @@ impl Editor {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye.\r\n")?;
         } else {
-            View::render()?;
+            self.view.render()?;
             Terminal::move_cursor_to(self.location)?;
         }
         Terminal::show_cursor()?;
